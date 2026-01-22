@@ -1,0 +1,42 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: clickhouse
+    ports:
+      - "8123:8123" # HTTP interface
+      - "9000:9000" # Native interface
+    environment:
+      CLICKHOUSE_DB: weather
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - ./.clickhouse:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "bash", "-lc", "clickhouse-client -q 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      # Metabase internal application DB (H2) + settings
+      - ./.metabase:/metabase-data
+      # Optional: driver plugins live here
+      - ./.metabase/plugins:/plugins
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+
+networks:
+  default:
+    name: weather-pipeline-net
