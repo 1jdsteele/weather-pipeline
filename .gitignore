@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Airflow runtime
+.airflow/
+
+# Metabase runtime / metadata
+.metabase/
+*.db
+
+# OS / editor noise
+.DS_Store
