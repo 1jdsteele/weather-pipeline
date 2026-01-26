@@ -1,89 +1,125 @@
-The purpose of this project is to create a modern analytics pipeline.
+# Modern Analytics Pipeline
 
-Apache Airflow orchestrates the pipeline. It ingests raw data from open-meteo, a weather API, transforms the data with a DAG written in python, stores the analytics data in ClickHouse, and then visualizes it with Metabase.
+## Project Purpose
+
+The purpose of this project is to create a **modern analytics pipeline**.
+
+Apache Airflow orchestrates the pipeline. It ingests raw data from **open-meteo** (a weather API), transforms the data with a DAG written in Python, stores the analytics data in **ClickHouse**, and then visualizes it with **Metabase**.
+
+---
+
+## Project Goals
 
 The major goals were to demonstrate:
-production-style orchestration with Airflow.
-OLAP-optimized storage with ClickHouse.
-End to end data visibility (DAG -> database -> dashboard).
 
-Project Demonstrates
-End to end ELT pipeline design
-clear separation of orchestration, storage, and visualization
-OLAP-appropriate database choices
-Dockerized local dev environment
-Production style observability
+- Production-style orchestration with Airflow
+- OLAP-optimized storage with ClickHouse
+- End-to-end data visibility (DAG → database → dashboard)
 
-Architectural overview:
-Source Data
-↓
-Airflow DAG (Extract → Transform → Load)
-↓
-ClickHouse (Analytics Tables)
-↓
+---
+
+## What This Project Demonstrates
+
+- End-to-end ELT pipeline design
+- Clear separation of orchestration, storage, and visualization
+- OLAP-appropriate database choices
+- Dockerized local development environment
+- Production-style observability
+
+---
+
+## Architectural Overview
+
+Source Data<br>
+↓<br>
+Airflow DAG (Extract → Transform → Load)<br>
+↓<br>
+ClickHouse (Analytics Tables)<br>
+↓<br>
 Metabase (Exploration & Dashboards)
 
-(I will (hopefully) add an architecture diagram, time permitting.)
+_(Architecture diagram coming soon, time permitting.)_
 
-Technologies Used:
-Apache Airflow – workflow orchestration and scheduling
+---
 
-ClickHouse – column-oriented OLAP database
+## Technologies Used
 
-Metabase – analytics UI and dashboards
+- **Apache Airflow** – workflow orchestration and scheduling
+- **ClickHouse** – column-oriented OLAP database
+- **Metabase** – analytics UI and dashboards
+- **Docker / Docker Compose** – containerization
+- **Python** – DAGs and data processing
+- **SQL** – analytics queries
 
-Docker / Docker Compose – containerization
+---
 
-Python – DAGs and data processing
+## Airflow Pipeline Orchestration
 
-SQL – analytics queries
+The Airflow DAG performs the following steps:
 
-Airflow pipeline orchestration
-The airflow DAG:
+1. Extracts source data from **open-meteo**
+2. Applies transformation
+   - Currently limited to basic metadata injection
+3. Loads results into a ClickHouse table
 
-1. Extracts source data from open-meteo
-2. Applies transformation (currently, basic metadata injection)
-3. Loads results into ClickHouse table
-   (airflow screnshot coming soon)
+_(Airflow screenshot coming soon.)_
 
-ClickHouse analytics storage
-Processed data is written to CLickHouse table which has been optimized for analytical queries.
-(ClickHouse example query and query result screenshots coming soon)
+---
 
-Metabase exploration and dashboards
-Metabase connects directly to ClickHouse to to provide:
-table exploration
-ad-hoc/on demand queries
-dashboard for key metrics.
-(metabase screenshots coming soon)
+## ClickHouse Analytics Storage
 
-Future improvements
-add dbt transformations for analytics modeling
-implement incremental loading strategies
-add data quality checks and airflow sensors
-expand metabase dashboards for increased business metric visibility
-deploy to managed airflow/ClickHouse envs
+Processed data is written to a ClickHouse table that has been optimized for analytical queries.
 
-Difficulties overcome:
+_(ClickHouse example query and query-result screenshots coming soon.)_
 
-Infra & orchestration
-Airflow PID conflicts
-Gunicorn startup timing
-Container lifecycle confusion
-Volume-mounted state persistence
+---
 
-Networking
-Service name resolution (clickhouse)
-DNS flakiness inside Docker
-External API availability
+## Metabase Exploration and Dashboards
 
-ClickHouse specifics
-HTTP auth
-Query formatting
-Insert semantics
-Error codes that aren’t obvious
+Metabase connects directly to ClickHouse to provide:
 
-Mental overhead
-Many moving pieces at once
-Unclear failure attribution
-Knowing when not to panic
+- Table exploration
+- Ad-hoc / on-demand queries
+- Dashboards for key metrics
+
+_(Metabase screenshots coming soon.)_
+
+---
+
+## Future Improvements
+
+- Add **dbt** transformations for analytics modeling
+- Implement incremental loading strategies
+- Add data quality checks and Airflow sensors
+- Expand Metabase dashboards for increased business metric visibility
+- Deploy to managed Airflow / ClickHouse environments
+
+---
+
+## Difficulties Overcome
+
+### Infrastructure & Orchestration
+
+- Airflow PID conflicts
+- Gunicorn startup timing
+- Container lifecycle confusion
+- Volume-mounted state persistence
+
+### Networking
+
+- Service name resolution (`clickhouse`)
+- DNS flakiness inside Docker
+- External API availability
+
+### ClickHouse Specifics
+
+- HTTP authentication
+- Query formatting
+- Insert semantics
+- Error codes that are not immediately obvious
+
+### Mental Overhead
+
+- Many moving pieces at once
+- Unclear failure attribution
+- Knowing when not to panic
