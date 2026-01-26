@@ -8,7 +8,7 @@ services:
     environment:
       CLICKHOUSE_DB: weather
       CLICKHOUSE_USER: default
-      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_PASSWORD: clickhouse #in production I would hide this, and all passwords via gitignore or most likely via a secure cloud
     ulimits:
       nofile:
         soft: 262144
@@ -40,7 +40,7 @@ services:
     container_name: airflow-postgres
     environment:
       POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
+      POSTGRES_PASSWORD: airflow #in production I would hide this
       POSTGRES_DB: airflow
     volumes:
       - ./.airflow/postgres:/var/lib/postgresql/data

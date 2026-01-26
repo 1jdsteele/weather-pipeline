@@ -4,7 +4,7 @@ import json
 import os
 from datetime import datetime, timedelta, timezone
 
-import requests
+import requests #makes http calls
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
@@ -15,7 +15,7 @@ from airflow.operators.python import PythonOperator
 
 # ClickHouse connection (Docker service name)
 CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "clickhouse")
-CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8123"))
+CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8123")) #http interfaace port
 CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "default")
 CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "clickhouse")
 CLICKHOUSE_DATABASE = os.getenv("CLICKHOUSE_DATABASE", "weather")
@@ -25,10 +25,10 @@ LOCATION_NAME = os.getenv("WEATHER_LOCATION_NAME", "pasadena-ca")
 LAT = float(os.getenv("WEATHER_LAT", "34.1478"))
 LON = float(os.getenv("WEATHER_LON", "-118.1445"))
 
-# Data source label stored in ClickHouse
+# Data source label stored in clickhouse
 SOURCE = os.getenv("WEATHER_SOURCE", "open-meteo")
 
-
+# makes url from lon and lat
 def build_open_meteo_url(lat: float, lon: float) -> str:
     """
     Open-Meteo endpoint for current weather.
@@ -50,11 +50,11 @@ def fetch_and_ingest_weather(**context) -> None:
 
     # 1) Fetch data
     url = build_open_meteo_url(LAT, LON)
-    resp = requests.get(url, timeout=15)
-    resp.raise_for_status()
-    payload_dict = resp.json()
+    resp = requests.get(url, timeout=15) # the actual get request
+    resp.raise_for_status() #raises exception if returns HTTPError
+    payload_dict = resp.json() #json -> dict
 
-    # Add a couple helpful metadata fields inside payload
+    # Add a couple helpful metadata fields inside payload 
     payload_dict["_meta"] = {
         "requested_at_utc": datetime.now(timezone.utc).isoformat(),
         "source": SOURCE,
@@ -63,7 +63,7 @@ def fetch_and_ingest_weather(**context) -> None:
         "lon": LON,
     }
 
-    payload_str = json.dumps(payload_dict)
+    payload_str = json.dumps(payload_dict) #convert dict to json string
 
     # 2) Insert into ClickHouse (via HTTP interface) using JSONEachRow (found out was necessary)
     row = {
@@ -74,6 +74,7 @@ def fetch_and_ingest_weather(**context) -> None:
         "payload": payload_str,  # JSON string
     }
 
+    # actual body POSTed to clickhouses http endpoint, pretty certain new line at end necessary
     full_sql = "INSERT INTO weather.raw_ingest FORMAT JSONEachRow\n" + json.dumps(row) + "\n"
 
     ch_url = f"http://{CLICKHOUSE_HOST}:{CLICKHOUSE_PORT}/"
@@ -101,7 +102,7 @@ with DAG(
     default_args=default_args,
     start_date=datetime(2026, 1, 1),
     schedule_interval="@hourly",
-    catchup=False,
+    catchup=False, # do not backfill from start_date
     tags=["weather", "ingestion", "clickhouse"],
 ) as dag:
     ingest_task = PythonOperator(
