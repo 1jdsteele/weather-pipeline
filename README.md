@@ -38,7 +38,10 @@ ClickHouse (Analytics Tables)<br>
 ↓<br>
 Metabase (Exploration & Dashboards)
 
-_(Architecture diagram coming soon, time permitting)_
+### Architecture Diagram
+
+![Architecture Overview](docs/screenshots/weather-pipeline-architecture.png)
+<br>_High-level architecture overview showing data flow from ingestion to analytics and visualization._
 
 ---
 
