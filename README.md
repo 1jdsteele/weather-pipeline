@@ -62,7 +62,13 @@ The Airflow DAG performs the following steps:
    - Currently limited to basic metadata injection
 3. Loads results into a ClickHouse table
 
-_(Airflow screenshot coming soon)_
+### Airflow: Pipeline Orchestration
+
+![Airflow DAG graph](docs/screenshots/airflow-dag-graph.png)
+_Airflow DAG graph showing successful execution of the ingestion pipeline._
+
+![Airflow task log](docs/screenshots/airflow-task-log-fetch-and-ingest.png)
+_Task execution log confirming successful data ingestion into ClickHouse._
 
 ---
 
@@ -70,7 +76,20 @@ _(Airflow screenshot coming soon)_
 
 Processed data is written to a ClickHouse table that has been optimized for analytical queries.
 
-_(ClickHouse example query and query-result screenshots coming soon)_
+### ClickHouse row count
+
+![ClickHouse: row count of raw ingested data](docs/screenshots/clickhouse-row-count.png)
+_Query result validating number of raw records ingested._
+
+### ClickHouse first/last data ingestion
+
+![ClickHouse: first/last raw data ingestion](docs/screenshots/clickhouse-first-last-ingest.png)
+_Query result proving minimum time range covered by ingested data (as time range continues to grow)._
+
+### ClickHouse example payload
+
+![ClickHouse: example of raw payload](docs/screenshots/clickhouse-example-payload.png)
+_Most recent (at time of screenshot) raw API payload stored in ClickHouse._
 
 ---
 
@@ -82,7 +101,10 @@ Metabase connects directly to ClickHouse to provide:
 - Ad-hoc / on-demand queries
 - Dashboards for key metrics
 
-_(Metabase screenshots coming soon)_
+### Metabase example visualization
+
+![Metabase: Pasadena, CA hourly temps (C) line graph](docs/screenshots/metabase-pas-temps.png)
+_Metabase line chart showing hourly temps (C) in Pasadena, CA._
 
 ---
 
