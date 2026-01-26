@@ -4,7 +4,7 @@
 
 The purpose of this project is to create a **modern analytics pipeline**.
 
-Apache Airflow orchestrates the pipeline. It ingests raw data from **open-meteo** (a weather API), transforms the data with a DAG written in Python, stores the analytics data in **ClickHouse**, and then visualizes it with **Metabase**.
+**Apache Airflow** orchestrates the pipeline. It ingests raw data from **open-meteo** (a weather API), transforms the data with a DAG written in Python, stores the analytics data in **ClickHouse**, and then visualizes it with **Metabase**.
 
 ---
 
@@ -38,7 +38,7 @@ ClickHouse (Analytics Tables)<br>
 ↓<br>
 Metabase (Exploration & Dashboards)
 
-_(Architecture diagram coming soon, time permitting.)_
+_(Architecture diagram coming soon, time permitting)_
 
 ---
 
@@ -62,7 +62,7 @@ The Airflow DAG performs the following steps:
    - Currently limited to basic metadata injection
 3. Loads results into a ClickHouse table
 
-_(Airflow screenshot coming soon.)_
+_(Airflow screenshot coming soon)_
 
 ---
 
@@ -70,7 +70,7 @@ _(Airflow screenshot coming soon.)_
 
 Processed data is written to a ClickHouse table that has been optimized for analytical queries.
 
-_(ClickHouse example query and query-result screenshots coming soon.)_
+_(ClickHouse example query and query-result screenshots coming soon)_
 
 ---
 
@@ -82,7 +82,7 @@ Metabase connects directly to ClickHouse to provide:
 - Ad-hoc / on-demand queries
 - Dashboards for key metrics
 
-_(Metabase screenshots coming soon.)_
+_(Metabase screenshots coming soon)_
 
 ---
 
