@@ -74,7 +74,7 @@ def fetch_and_ingest_weather(**context) -> None:
         "payload": payload_str,  # JSON string
     }
 
-    # actual body POSTed to clickhouses http endpoint, pretty certain new line at end necessary
+    # SQL query + one JSONEachRow row posted to ClickHouse HTTP endpoint
     full_sql = "INSERT INTO weather.raw_ingest FORMAT JSONEachRow\n" + json.dumps(row) + "\n"
 
     ch_url = f"http://{CLICKHOUSE_HOST}:{CLICKHOUSE_PORT}/"
