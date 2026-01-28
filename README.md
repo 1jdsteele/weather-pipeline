@@ -179,7 +179,7 @@ Metabase connects directly to ClickHouse to provide:
 ### Bronze Exploration (Raw Data)
 
 ![Metabase: Raw ingestion table](docs/screenshots/metabase-raw.png)
-_Exploration of raw ingested weather payloads (bronze layer)._
+_Exploration of raw ingested weather payloads clearly showing anomalous data points (bronze layer)._
 
 Used primarily for:
 
