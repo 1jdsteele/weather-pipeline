@@ -12,7 +12,7 @@ The purpose of this project is to create a **modern analytics pipeline**.
 
 The major goals were to demonstrate:
 
-- Production-style orchestration with Airflow
+- Production-style ELT orchestration with Airflow
 - OLAP-optimized storage with ClickHouse
 - End-to-end data visibility (DAG → database → dashboard)
 
