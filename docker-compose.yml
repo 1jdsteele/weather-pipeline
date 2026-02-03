@@ -104,7 +104,8 @@ services:
       - ./airflow/dags:/opt/airflow/dags
       - ./.airflow/logs:/opt/airflow/logs
       - ./.airflow/plugins:/opt/airflow/plugins
-    command: webserver
+    command: >
+      bash -lc "rm -f /opt/airflow/airflow-webserver.pid && exec airflow webserver"
 
   airflow-scheduler:
     image: apache/airflow:2.9.3
