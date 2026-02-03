@@ -4,7 +4,7 @@ services:
     container_name: clickhouse
     ports:
       - "8123:8123" # HTTP interface
-      - "9000:9000" # Native interface
+      # - "9000:9000" # Native interface
     environment:
       CLICKHOUSE_DB: weather
       CLICKHOUSE_USER: default
@@ -64,7 +64,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      _PIP_ADDITIONAL_REQUIREMENTS: "requests clickhouse-connect"
+      _PIP_ADDITIONAL_REQUIREMENTS: "requests clickhouse-connect boto3"
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./.airflow/logs:/opt/airflow/logs
@@ -84,14 +84,21 @@ services:
         condition: service_completed_successfully
       clickhouse:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      _PIP_ADDITIONAL_REQUIREMENTS: "requests clickhouse-connect"
+      _PIP_ADDITIONAL_REQUIREMENTS: "requests clickhouse-connect boto3"
       AIRFLOW_UID: "50000"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin123"
+      MINIO_BUCKET: "weather-raw"
+      MINIO_SECURE: "false"
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./.airflow/logs:/opt/airflow/logs
@@ -108,17 +115,44 @@ services:
         condition: service_completed_successfully
       clickhouse:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      _PIP_ADDITIONAL_REQUIREMENTS: "requests clickhouse-connect"
+      _PIP_ADDITIONAL_REQUIREMENTS: "requests clickhouse-connect boto3"
       AIRFLOW_UID: "50000"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin123"
+      MINIO_BUCKET: "weather-raw"
+      MINIO_SECURE: "false"
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./.airflow/logs:/opt/airflow/logs
       - ./.airflow/plugins:/opt/airflow/plugins
     command: scheduler
+  minio:
+    image: minio/minio:latest
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+volumes:
+  minio_data:
 
 networks:
   default:
