@@ -1,14 +1,15 @@
 from __future__ import annotations
-
 import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
-
 import requests
 from airflow.decorators import dag, task
 from airflow.exceptions import AirflowException
+import clickhouse_connect
+from clickhouse_connect.driver.exceptions import ClickHouseError
+
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +35,20 @@ def build_open_meteo_url(lat: float, lon: float) -> str:
     )
 
 
-# ---------- Validation helpers ----------
+# ++++++++++++ ch client helper ++++++++++
+
+
+def get_ch_client():
+    return clickhouse_connect.get_client(
+        host=CLICKHOUSE_HOST,
+        port=CLICKHOUSE_PORT,
+        username=CLICKHOUSE_USER,
+        password=CLICKHOUSE_PASSWORD,
+        database=CLICKHOUSE_DATABASE,
+    )
+
+
+# +++++++++ validation helpers +++++++
 def validate_lat_lon(lat: float, lon: float) -> None:
     if not (-90.0 <= lat <= 90.0):
         raise ValueError(f"Invalid latitude {lat}. Expected -90..90.")
@@ -89,7 +103,7 @@ default_args = {
 }
 
 
-#++++++++++++++=the dag++++++++++++++++
+# ++++++++++++++=the dag++++++++++++++++
 @dag(
     dag_id="ingest_open_meteo",
     description="Fetch current weather from Open-Meteo and ingest raw payload into ClickHouse",
@@ -120,11 +134,17 @@ def ingest_open_meteo_taskflow():
         except requests.exceptions.HTTPError as e:
             status = getattr(e.response, "status_code", None)
             body = (getattr(e.response, "text", "") or "")[:500]
-            raise AirflowException(f"fetch_weather HTTPError: status={status} url={url} body={body}") from e
+            raise AirflowException(
+                f"fetch_weather HTTPError: status={status} url={url} body={body}"
+            ) from e
         except requests.exceptions.RequestException as e:
-            raise AirflowException(f"fetch_weather request failed: url={url} err={e}") from e
+            raise AirflowException(
+                f"fetch_weather request failed: url={url} err={e}"
+            ) from e
         except ValueError as e:
-            raise AirflowException(f"fetch_weather invalid JSON response: url={url} err={e}") from e
+            raise AirflowException(
+                f"fetch_weather invalid JSON response: url={url} err={e}"
+            ) from e
 
         validate_open_meteo_payload(payload)
         log.info("Fetched Open-Meteo payload and passed validation.")
@@ -144,10 +164,12 @@ def ingest_open_meteo_taskflow():
         ensure_json_serializable(enriched, "enriched payload")
         return enriched
 
-    @task(task_id="build_clickhouse_insert")
-    def build_clickhouse_insert(enriched_payload: Dict[str, Any]) -> str:
+    @task(task_id="insert_raw_ingest", retries=5, retry_delay=timedelta(minutes=2))
+    def insert_raw_ingest(enriched_payload: Dict[str, Any]) -> None:
         if "_meta" not in enriched_payload:
-            raise ValueError("enriched_payload missing _meta (expected after add_metadata).")
+            raise ValueError(
+                "enriched_payload missing _meta (expected after add_metadata)."
+            )
 
         payload_str = json.dumps(enriched_payload)
 
@@ -158,50 +180,31 @@ def ingest_open_meteo_taskflow():
             "lon": LON,
             "payload": payload_str,
         }
+
         validate_raw_ingest_row_shape(row)
         ensure_json_serializable(row, "raw_ingest row")
 
-        full_sql = (
-            f"INSERT INTO {CLICKHOUSE_DATABASE}.raw_ingest FORMAT JSONEachRow\n"
-            + json.dumps(row)
-            + "\n"
-        )
-        require_nonempty_str(full_sql, "full_sql")
-        return full_sql
+        client = get_ch_client()
 
-    @task(task_id="post_to_clickhouse", retries=5, retry_delay=timedelta(minutes=2))
-    def post_to_clickhouse(full_sql: str) -> None:
-        full_sql = require_nonempty_str(full_sql, "full_sql")
-
-        ch_url = f"http://{CLICKHOUSE_HOST}:{CLICKHOUSE_PORT}/"
-        params = {
-            "database": CLICKHOUSE_DATABASE,
-            "user": CLICKHOUSE_USER,
-            "password": CLICKHOUSE_PASSWORD,
-        }
+        columns = ["source", "location", "lat", "lon", "payload"]
+        data = [[row[c] for c in columns]]
 
         try:
-            resp = requests.post(ch_url, params=params, data=full_sql.encode("utf-8"), timeout=15)
-            resp.raise_for_status()
-        except requests.exceptions.Timeout as e:
-            raise AirflowException(f"post_to_clickhouse timeout: url={ch_url} db={CLICKHOUSE_DATABASE}") from e
-        except requests.exceptions.HTTPError as e:
-            status = getattr(e.response, "status_code", None)
-            body = (getattr(e.response, "text", "") or "")[:800]
-            raise AirflowException(
-                f"post_to_clickhouse HTTPError: status={status} url={ch_url} db={CLICKHOUSE_DATABASE} body={body}"
-            ) from e
-        except requests.exceptions.RequestException as e:
-            raise AirflowException(f"post_to_clickhouse request failed: url={ch_url} err={e}") from e
+            client.insert("raw_ingest", data, column_names=columns)
+        except ClickHouseError as e:
+            raise AirflowException(f"ClickHouse insert failed: {e}") from e
 
-        log.info("Inserted 1 row into %s.raw_ingest for location=%s", CLICKHOUSE_DATABASE, LOCATION_NAME)
+        log.info(
+            "Inserted 1 row into %s.raw_ingest for location=%s",
+            CLICKHOUSE_DATABASE,
+            LOCATION_NAME,
+        )
 
-    # the 5 nodes of this dag
+    # the 4 nodes of this dag
     url = build_url(LAT, LON)
     raw_payload = fetch_weather(url)
     enriched_payload = add_metadata(raw_payload)
-    full_sql = build_clickhouse_insert(enriched_payload)
-    post_to_clickhouse(full_sql)
+    insert_raw_ingest(enriched_payload)
 
 
 dag = ingest_open_meteo_taskflow()
