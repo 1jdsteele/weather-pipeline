@@ -23,6 +23,17 @@ MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin123")
 MINIO_BUCKET = os.getenv("MINIO_BUCKET", "weather-raw")
 MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"
 
+CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "clickhouse")
+CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8123"))
+CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "default")
+CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "clickhouse")
+
+# We created the manifest in the `weather` DB
+CLICKHOUSE_DATABASE = os.getenv("CLICKHOUSE_DATABASE", "weather")
+CLICKHOUSE_MANIFEST_TABLE = os.getenv(
+    "CLICKHOUSE_MANIFEST_TABLE", "minio_weather_manifest"
+)
+
 
 def build_open_meteo_url(lat: float, lon: float) -> str:
     return (
@@ -171,14 +182,82 @@ def ingest_open_meteo_to_minio():
             "bucket": MINIO_BUCKET,
             "object_key": key,
             "payload_sha256": sha,
+            "object_bytes": len(payload_bytes),
             "observed_time": cw["time"],
             "temperature_c": cw["temperature"],
         }
 
+    @task(
+        task_id="write_manifest_to_clickhouse",
+        retries=5,
+        retry_delay=timedelta(minutes=2),
+    )
+    def write_manifest_to_clickhouse(minio_result: Dict[str, Any]) -> None:
+        # DO NOT MOVE GlOBALLY
+        import requests
+
+        context = get_current_context()
+        logical_dt: datetime = context["logical_date"]
+
+        hour_utc = logical_dt.astimezone(timezone.utc).replace(
+            minute=0, second=0, microsecond=0
+        )
+
+        row = {
+            "source": SOURCE,
+            "location_name": LOCATION_NAME,
+            "hour_utc": hour_utc.strftime("%Y-%m-%d %H:%M:%S"),
+            "bucket": minio_result["bucket"],
+            "object_key": minio_result["object_key"],
+            "payload_sha256": minio_result["payload_sha256"],
+            "object_bytes": int(minio_result.get("object_bytes", 0)),
+            "airflow_run_id": context["run_id"],
+            "airflow_try_number": int(context["ti"].try_number),
+        }
+
+        log.info("Manifest row JSON: %s", json.dumps(row))
+
+        insert_sql = f"""
+        INSERT INTO {CLICKHOUSE_DATABASE}.{CLICKHOUSE_MANIFEST_TABLE}
+        (
+            source, location_name, hour_utc,
+            bucket, object_key,
+            payload_sha256, object_bytes,
+            airflow_run_id, airflow_try_number
+        )
+        FORMAT JSONEachRow
+        """
+
+        url = f"http://{CLICKHOUSE_HOST}:{CLICKHOUSE_PORT}/?database={CLICKHOUSE_DATABASE}"
+        data = json.dumps(row) + "\n"
+
+        try:
+            resp = requests.post(
+                url,
+                auth=(CLICKHOUSE_USER, CLICKHOUSE_PASSWORD),
+                params={"query": insert_sql},
+                data=data,
+                timeout=15,
+            )
+            resp.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            body = (getattr(resp, "text", "") or "")[:800] if "resp" in locals() else ""
+            raise AirflowException(
+                f"ClickHouse manifest insert failed: err={e} body={body}"
+            ) from e
+
+        log.info(
+            "Wrote manifest row: location=%s hour_utc=%s key=%s",
+            LOCATION_NAME,
+            row["hour_utc"],
+            row["object_key"],
+        )
+
     url = build_url()
     payload = fetch_weather(url)
     enriched = add_metadata(payload)
-    write_to_minio(enriched)
+    minio_result = write_to_minio(enriched)
+    write_manifest_to_clickhouse(minio_result)
 
 
 dag = ingest_open_meteo_to_minio()
